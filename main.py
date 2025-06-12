@@ -16,54 +16,8 @@ from torch_geometric.nn import SAGEConv, global_mean_pool
 from torch.utils.data import Dataset, DataLoader
 from torch.nn.utils.rnn import pad_sequence
 from tqdm import tqdm
+from sklearn.model_selection import train_test_split
 
-def at_number_to_atom_name(at_number):
-    if at_number == 6:
-        return 'C'
-    elif at_number == 1:
-        return 'H'
-    elif at_number == 7:
-        return 'N'
-    elif at_number == 8:
-        return 'O'
-    elif at_number == 9:
-        return 'F'
-    elif at_number == 16:
-        return 'S'
-    else:
-        return 'Unknown'
-
-def inspect_structure(idx, smiles_data, pos_data, type_data, fe, mu, std):
-    smile = smiles_data[idx]
-    pos = pos_data[idx]
-    typ = type_data[idx]
-
-    header = f"{'Atom':^5}│{'Number':^6}│{'x':^10}│{'y':^10}│{'z':^10}"
-    line   = "─────┼──────┼──────────┼──────────┼──────────"
-    print(header)
-    print(line)
-
-    for atom_num, (x, y, z) in zip(typ, pos):
-        atom_sym = at_number_to_atom_name(atom_num)
-        print(f"{atom_sym:^5}│{atom_num:^6}│{x:>10.3f}│{y:>10.3f}│{z:>10.3f}")
-    print("")
-    print("")
-    print(f'SMILE: {smile}')
-    print("")
-    print("")
-    print(f'Formation Energy: {fe[idx]*std + mu:.3f}')
-    print(f'Formation Energy (normalized): {fe[idx]:.5f}')
-    mol = Chem.MolFromSmiles(smile)
-    if mol:
-        # RDKit prefers 2‑D coordinates for nice depictions
-        Chem.AllChem.Compute2DCoords(mol)
-        img = Draw.MolToImage(mol, size=(300, 300))
-
-        # Display with matplotlib (works both in notebooks and scripts)
-        plt.figure(figsize=(3, 3))
-        plt.axis('off')
-        plt.imshow(img)
-        plt.show()
 
 '--------------------------------GNN-Model-and-Dataset-----------------------------'
 class MolecularDataset(torch_geometric.data.Dataset):
@@ -347,7 +301,10 @@ def SMILES_trainer(model, train_loader, test_loader, optimizer, mu, std, device,
     return model
 
 
-def main():
+
+
+
+def task1():
 
     '-----------------------------data-processing-----------------------------'
     with open('data/pos_data.pkl', 'rb') as f:
@@ -385,7 +342,7 @@ def main():
     mu_tensor = torch.tensor(mu, dtype=torch.float32).to(device)
     std_tensor = torch.tensor(std, dtype=torch.float32).to(device)
 
-    flag_GNN = True
+    flag_GNN = False
     GNN_trainer(model, 
                 (train_loader, test_loader), 
                 optimizer, 
@@ -414,7 +371,7 @@ def main():
     mu_tensor = torch.tensor(mu, dtype=torch.float32).to(device)
     std_tensor = torch.tensor(std, dtype=torch.float32).to(device)
 
-    flag_smiles = True
+    flag_smiles = False
     SMILES_trainer(smiles_model, 
                train_smiles_loader, 
                test_smiles_loader, 
@@ -422,7 +379,93 @@ def main():
                mu_tensor, 
                std_tensor, 
                device,
-               train=flag_smiles) 
+               train=flag_smiles)
+
+    
+def task2():
+    '-----------------------------data-processing-----------------------------'
+    with open('data/pos_data.pkl', 'rb') as f:
+        pos_data = pickle.load(f)
+    with open('data/type_data.pkl', 'rb') as f:
+        type_data = pickle.load(f)
+    with open('data/smiles.pkl', 'rb') as f:
+        smiles_data = pickle.load(f)
+
+    data_split = np.load('data/data_split.npz')
+    train_idxes = data_split['train_idx']
+    test_idxes = data_split['test_idx']
+    formation_energy = np.load('data/formation_energy.npz')
+    fe = formation_energy['y']
+    mu = formation_energy['mu']
+    std = formation_energy['sigma']
+
+    subset_size = 100
+
+    '-----------------------------geometric-model-----------------------------'
+    dataset = MolecularDataset(pos_data, type_data, fe)
+    train_dataset = [dataset.get(i) for i in train_idxes[:subset_size]]
+    test_dataset = [dataset.get(i) for i in test_idxes]
+
+    batch_size = 64
+    train_loader = torch_geometric.loader.DataLoader(train_dataset, 
+                                                     batch_size=batch_size, 
+                                                     shuffle=True)
+    test_loader = torch_geometric.loader.DataLoader(test_dataset, 
+                                                    batch_size=batch_size)
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(device)
+
+    model = FormationEnergyGNN().to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    mu_tensor = torch.tensor(mu, dtype=torch.float32).to(device)
+    std_tensor = torch.tensor(std, dtype=torch.float32).to(device)
+
+    flag_GNN = False
+    GNN_trainer(model, 
+                (train_loader, test_loader), 
+                optimizer, 
+                mu_tensor,
+                std_tensor, 
+                device,
+                checkpoint_dir= f"checkpoints_GNN_s{subset_size}",
+                train=flag_GNN) 
+    
+
+    '-----------------------------SMILES-model-----------------------------'
+    smiles_dataset = SMILESDataset(smiles_data, fe)
+    train_smiles = [smiles_dataset[i] for i in train_idxes[:subset_size]]
+    test_smiles = [smiles_dataset[i] for i in test_idxes]
+
+    batch_size = 64
+    train_smiles_loader = DataLoader(train_smiles, batch_size=batch_size, 
+                                     shuffle=True, collate_fn=collate_fn)
+    test_smiles_loader = DataLoader(test_smiles, batch_size=batch_size, 
+                                    collate_fn=collate_fn)
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+
+    smiles_model = SMILESRegressor(smiles_dataset.vocab_size).to(device)
+    smiles_optimizer = torch.optim.Adam(smiles_model.parameters(), lr=0.001)
+    mu_tensor = torch.tensor(mu, dtype=torch.float32).to(device)
+    std_tensor = torch.tensor(std, dtype=torch.float32).to(device)
+
+    flag_smiles = False
+    SMILES_trainer(smiles_model, 
+               train_smiles_loader, 
+               test_smiles_loader, 
+               smiles_optimizer, 
+               mu_tensor, 
+               std_tensor, 
+               device,
+               checkpoint_dir= f"checkpoints_SMILES_s{subset_size}",
+               train=flag_smiles)
+    
 
 if __name__ == '__main__':
-    main()
+    print("Running Task 1...")
+    task1()
+    print("\n" + "="*50 + "\n")
+    print("Running Task 2...")
+    task2()
