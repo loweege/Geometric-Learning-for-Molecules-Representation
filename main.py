@@ -12,11 +12,19 @@ from tqdm import tqdm
 
 from datasets import MolecularDataset, SMILESDataset
 from models import SMILESRegressor, FormationEnergyGNN
-from utils import denormalize, mape, relative_error, accuracy, r_squared, collate_fn, evaluate_and_plot_all
+from utils import denormalize, mape, relative_error, accuracy, r_squared
+from utils import collate_fn, evaluate_and_plot_all, load_metrics, plot_metrics
 
 '------------------------------------GNN-Trainer------------------------------------'
-def GNN_trainer(model, dataloaders, optimizer, mu, std, device, num_epochs=10, 
-                checkpoint_dir="checkpoints_GNN", train=True):
+def GNN_trainer(model, 
+                dataloaders, 
+                optimizer, 
+                mu, 
+                std, 
+                device, 
+                num_epochs=10, 
+                checkpoint_dir="checkpoints_GNN", 
+                train=True):
 
     metrics_history = {
     'train_mse': [],
@@ -117,8 +125,16 @@ def GNN_trainer(model, dataloaders, optimizer, mu, std, device, num_epochs=10,
 
 
 '------------------------------------SMILES-Trainer------------------------------------'
-def SMILES_trainer(model, train_loader, test_loader, optimizer, mu, std, device, 
-                   num_epochs=10, checkpoint_dir="checkpoints_SMILES", train=True):
+def SMILES_trainer(model, 
+                   train_loader, 
+                   test_loader, 
+                   optimizer, 
+                   mu, 
+                   std, 
+                   device, 
+                   num_epochs=10, 
+                   checkpoint_dir="checkpoints_SMILES", 
+                   train=True):
 
     metrics_history = {
         'train_mse': [],
@@ -235,7 +251,6 @@ def training_and_comparison():
     mu = formation_energy['mu']
     std = formation_energy['sigma']
 
-
     '-----------------------------geometric-model-----------------------------'
     dataset = MolecularDataset(pos_data, type_data, fe)
     train_dataset = [dataset.get(i) for i in train_idxes]
@@ -319,3 +334,7 @@ if __name__ == '__main__':
     training_and_comparison()
     print("Training and Comparison phase completed successfully.")
     print("\n" + "="*50 + "\n")
+    print("Loading and Plotting Metrics...")
+    gnn_metrics, smiles_metrics = load_metrics()
+    plot_metrics(gnn_metrics, smiles_metrics)
+    print("Metrics loaded and plotted successfully.")

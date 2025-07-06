@@ -1,5 +1,7 @@
 import torch
 import matplotlib.pyplot as plt
+import os
+import pickle
 from torch.nn.utils.rnn import pad_sequence
 
 '------------------------------------Metrics------------------------------------'
@@ -113,4 +115,134 @@ def evaluate_and_plot_all(model_gnn, model_smiles,
 
     plt.tight_layout()
     plt.suptitle("Predicted vs. True Formation Energy (GNN vs SMILES)", fontsize=16, y=1.03)
+    plt.show()
+
+
+'------------------------------------load-and-plot-metrics------------------------------------'
+def load_metrics(base_dir="."):
+    """Load all metrics files from the directory structure"""
+    gnn_metrics = {}
+    smiles_metrics = {}
+    
+    for dirname in os.listdir(base_dir):
+        if dirname.startswith("checkpoints_GNN_s"):
+            size = int(dirname.split("_s")[1])
+            metrics_file = os.path.join(base_dir, dirname, "GNN_metrics_history.pkl")
+            if os.path.exists(metrics_file):
+                with open(metrics_file, 'rb') as f:
+                    gnn_metrics[size] = pickle.load(f)
+
+    for dirname in os.listdir(base_dir):
+        if dirname.startswith("checkpoints_SMILES_s"):
+            size = int(dirname.split("_s")[1])
+            metrics_file = os.path.join(base_dir, dirname, "SMILES_metrics_history.pkl")
+            if os.path.exists(metrics_file):
+                with open(metrics_file, 'rb') as f:
+                    smiles_metrics[size] = pickle.load(f)
+    
+    return gnn_metrics, smiles_metrics
+
+def plot_metrics(gnn_metrics, smiles_metrics):
+    plt.figure(figsize=(20, 16))
+    gnn_sizes = sorted(gnn_metrics.keys())
+    smiles_sizes = sorted(smiles_metrics.keys())
+    
+    # ====================== MSE PLOTS ======================
+    plt.subplot(2, 4, 1)
+    for size in gnn_sizes:
+        metrics = gnn_metrics[size]
+        epochs = range(1, len(metrics['train_mse']) + 1)
+        plt.plot(epochs, metrics['train_mse'], label=f'{size} samples', alpha=0.8)
+    plt.title('GNN Training MSE')
+    plt.xlabel('Epoch')
+    plt.ylabel('MSE')
+    plt.legend(title="Training Size")
+    plt.grid(True, alpha=0.3)
+    
+
+    plt.subplot(2, 4, 2)
+    for size in gnn_sizes:
+        metrics = gnn_metrics[size]
+        epochs = range(1, len(metrics['test_mse']) + 1)
+        plt.plot(epochs, metrics['test_mse'], label=f'{size} samples', alpha=0.8)
+    plt.title('GNN Testing MSE')
+    plt.xlabel('Epoch')
+    plt.ylabel('MSE')
+    plt.legend(title="Training Size")
+    plt.grid(True, alpha=0.3)
+    
+
+    plt.subplot(2, 4, 3)
+    for size in smiles_sizes:
+        metrics = smiles_metrics[size]
+        epochs = range(1, len(metrics['train_mse']) + 1)
+        plt.plot(epochs, metrics['train_mse'], label=f'{size} samples', alpha=0.8)
+    plt.title('SMILES Training MSE')
+    plt.xlabel('Epoch')
+    plt.ylabel('MSE')
+    plt.legend(title="Training Size")
+    plt.grid(True, alpha=0.3)
+    
+
+    plt.subplot(2, 4, 4)
+    for size in smiles_sizes:
+        metrics = smiles_metrics[size]
+        epochs = range(1, len(metrics['test_mse']) + 1)
+        plt.plot(epochs, metrics['test_mse'], label=f'{size} samples', alpha=0.8)
+    plt.title('SMILES Testing MSE')
+    plt.xlabel('Epoch')
+    plt.ylabel('MSE')
+    plt.legend(title="Training Size")
+    plt.grid(True, alpha=0.3)
+    
+    # ====================== R² PLOTS ======================
+    plt.subplot(2, 4, 5)
+    for size in gnn_sizes:
+        metrics = gnn_metrics[size]
+        epochs = range(1, len(metrics['train_r2']) + 1)
+        plt.plot(epochs, metrics['train_r2'], label=f'{size} samples', alpha=0.8)
+    plt.title('GNN Training R²')
+    plt.xlabel('Epoch')
+    plt.ylabel('R²')
+    plt.legend(title="Training Size")
+    plt.grid(True, alpha=0.3)
+
+
+    plt.subplot(2, 4, 6)
+    for size in gnn_sizes:
+        metrics = gnn_metrics[size]
+        epochs = range(1, len(metrics['test_r2']) + 1)
+        plt.plot(epochs, metrics['test_r2'], label=f'{size} samples', alpha=0.8)
+    plt.title('GNN Testing R²')
+    plt.xlabel('Epoch')
+    plt.ylabel('R²')
+    plt.legend(title="Training Size")
+    plt.grid(True, alpha=0.3)
+    
+
+    plt.subplot(2, 4, 7)
+    for size in smiles_sizes:
+        metrics = smiles_metrics[size]
+        epochs = range(1, len(metrics['train_r2']) + 1)
+        plt.plot(epochs, metrics['train_r2'], label=f'{size} samples', alpha=0.8)
+    plt.title('SMILES Training R²')
+    plt.xlabel('Epoch')
+    plt.ylabel('R²')
+    plt.legend(title="Training Size")
+    plt.grid(True, alpha=0.3)
+    
+
+    plt.subplot(2, 4, 8)
+    for size in smiles_sizes:
+        metrics = smiles_metrics[size]
+        epochs = range(1, len(metrics['test_r2']) + 1)
+        plt.plot(epochs, metrics['test_r2'], label=f'{size} samples', alpha=0.8)
+    plt.title('SMILES Testing R²')
+    plt.xlabel('Epoch')
+    plt.ylabel('R²')
+    plt.legend(title="Training Size")
+    plt.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig('training_size_comparison_with_R2.png', dpi=300, bbox_inches='tight')
     plt.show()
