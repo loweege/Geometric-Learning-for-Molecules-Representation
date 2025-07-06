@@ -1,8 +1,8 @@
 # Geometric-Learning-for-Molecules-Representation
 
-Geometric learning is a field of machine learning that focuses on data with inherent geometric structures. In this study, the objects of interest are molecules, and the goal is to predict their formation energy—an important property related to molecular stability.
+Geometric learning is a field of machine learning that focuses on data with inherent geometric structures. In this study, the objects of interest are molecules, and the goal is to predict their formation energy, an important property related to molecular stability.
 
-Molecules can naturally be represented as graphs, where atoms are nodes and chemical bonds are edges. This makes them well-suited for graph neural networks (GNNs), which are designed to handle such structured data.
+Molecules can naturally be represented as graphs, where atoms are nodes and chemical bonds are edges. This makes them well-suited for **graph neural networks (GNNs)**, which are designed to handle such structured data.
 
 In this study, we aim to build, train, and compare two regression models. One model uses a dataset in which molecules are represented as strings using the SMILES format, while the other uses a dataset that preserves the geometric structure of the molecules. The objective is to assess the strengths and capabilities of geometric learning when appropriately applied to problems involving structured data.
 
